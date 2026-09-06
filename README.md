@@ -1,87 +1,76 @@
-# TelegramNotifier
+# SemaNami
 
 A small, general-purpose way to send yourself a Telegram message from any tool or script —
 a build finishing, a long job completing, a deploy landing, anything.
 
+```
+SemaNami -sender "Build Script" -message "Build finished successfully"
+```
+
+Cross-platform (Windows, macOS, Linux). Windows ships a proper installer that puts `SemaNami`
+on your PATH and walks you through setup; macOS/Linux get a self-contained binary + install
+script.
+
 Two pieces:
-- **`TelegramNotifier.Core`** — a class library any .NET app/tool can reference directly.
-- **`TelegramNotifier.Cli`** — a console app (`notify`) any script (PowerShell, bash, a CI
-  step, a non-.NET tool) can invoke as a plain process.
+- **`SemaNami.Core`** — a class library any .NET app/tool can reference directly.
+- **`SemaNami.Cli`** — the `SemaNami` console command any script (PowerShell, bash, a CI step,
+  a non-.NET tool) can invoke as a plain process.
 
-## One-time setup
+## Install
 
-### 1. Create a bot
+### Windows
 
-1. Open Telegram and search for **`@BotFather`** (official, verified).
-2. Send `/newbot`.
-3. Give it a display name (anything) and a username ending in `bot`.
-4. BotFather replies with a **token** — a string like `123456789:AAH...xyz`. Save it.
+Run `dist/installer/SemaNamiSetup.exe` (build it first — see below). It's a per-user install,
+no admin required, adds `SemaNami` to your PATH, and offers to run setup immediately after
+install.
 
-### 2. Let the bot know who you are
+### macOS / Linux
 
-Telegram bots can't message you until you've messaged them first.
+Download/copy the `dist/<rid>/` folder for your platform (`osx-x64`, `osx-arm64`, or
+`linux-x64`) — it contains the `SemaNami` binary and `install.sh`. Then:
 
-1. Search for your new bot's username in Telegram and open a chat with it.
-2. Send it any message (e.g. "hi").
-
-### 3. Find your chat id
-
-From this folder:
-
-```powershell
-$env:TELEGRAM_BOT_TOKEN = "your-token-here"
-dotnet run --project src/TelegramNotifier.Cli -- --get-chat-id
-```
-
-This prints the chat id(s) found from messages your bot has received. If you only ever
-messaged it once yourself, there'll be exactly one number — that's your chat id.
-
-### 4. Set both environment variables permanently
-
-So every tool that shells out to `notify` (or references `TelegramNotifier.Core` directly)
-can find them without you re-exporting them each session:
-
-**Windows (PowerShell, persists across sessions):**
-```powershell
-[Environment]::SetEnvironmentVariable("TELEGRAM_BOT_TOKEN", "your-token-here", "User")
-[Environment]::SetEnvironmentVariable("TELEGRAM_CHAT_ID", "your-chat-id-here", "User")
-```
-Restart your terminal after this for it to take effect.
-
-**Linux/macOS (add to `~/.bashrc` / `~/.zshrc`):**
 ```bash
-export TELEGRAM_BOT_TOKEN="your-token-here"
-export TELEGRAM_CHAT_ID="your-chat-id-here"
+chmod +x install.sh SemaNami
+./install.sh
 ```
+
+This copies `SemaNami` to `/usr/local/bin` (already on PATH by default on macOS and most Linux
+distributions) and runs `SemaNami --setup` for you.
+
+## Setup
+
+Run `SemaNami --setup` (the installer offers to do this automatically). It walks you through
+everything that's possible to automate:
+
+1. **The one thing that can't be automated**: Telegram requires a human to create a bot.
+   The wizard tells you to open **@BotFather** in Telegram, send `/newbot`, and paste the
+   token it gives you back into the wizard.
+2. Once you paste the token, the wizard validates it, tells you your bot's `@username`, and
+   asks you to message that bot once (so it's allowed to message you back).
+3. Everything after that is automatic: it detects your chat id, saves both values (Windows
+   user environment variables, or a sourced env file on macOS/Linux), and sends you a live
+   confirmation message.
+
+Re-running `SemaNami --setup` when already configured just confirms that and exits — safe to
+run again any time.
 
 ## Usage
 
-### As a standalone command any tool/script can shell out to
-
-Build a self-contained executable once:
-
-```powershell
-dotnet publish src/TelegramNotifier.Cli -c Release -o publish
+```
+SemaNami -sender "<Sender Name>" -message "<Chat Message>"
+SemaNami --setup
+SemaNami --get-chat-id
+SemaNami --help
 ```
 
-Then from anywhere:
+Running `SemaNami` with no arguments prints the same usage to stdout.
 
-```powershell
-publish\TelegramNotifier.Cli.exe "Build finished successfully"
-```
-
-Or during development, without publishing first:
-
-```powershell
-dotnet run --project src/TelegramNotifier.Cli -- "Build finished successfully"
-```
-
-Exit code is `0` on success, `1` on failure (bad/missing config, blank message, send failure)
+Exit code is `0` on success, `1` on failure (not configured yet, bad arguments, send failure)
 — safe to check from a script (`if ($LASTEXITCODE -ne 0) { ... }` / `if [ $? -ne 0 ]; then ...`).
 
 ### From another .NET project directly
 
-Reference `TelegramNotifier.Core` and use `Notifier` — no process-spawn overhead:
+Reference `SemaNami.Core` and use `Notifier` — no process-spawn overhead:
 
 ```csharp
 var sender = new TelegramBotMessageSender(botToken);
@@ -89,8 +78,17 @@ var notifier = new Notifier(sender, chatId);
 await notifier.NotifyAsync("Deploy complete");
 ```
 
-## Running the tests
+## Building
 
 ```powershell
-dotnet test
+dotnet test                    # run the test suite
+pwsh scripts/build-all.ps1     # publish self-contained binaries for all platforms into dist/
 ```
+
+To also build the Windows installer (after `build-all.ps1` has produced `dist/win-x64/`):
+
+```powershell
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\SemaNami.iss
+```
+
+Produces `dist/installer/SemaNamiSetup.exe`.

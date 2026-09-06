@@ -5,17 +5,30 @@ var command = CliArgs.Parse(args);
 
 return command switch
 {
+    CliCommand.ShowUsage => ShowUsage(),
     CliCommand.Invalid invalid => Fail(invalid.Error),
     CliCommand.GetChatId => await RunGetChatIdAsync(),
-    CliCommand.Send send => await RunSendAsync(send.Message),
+    CliCommand.RunSetup => await RunSetupAsync(),
+    CliCommand.Send send => await RunSendAsync(send.Sender, send.Message),
     _ => Fail("Unrecognized command."),
 };
+
+int ShowUsage()
+{
+    Console.WriteLine(CliArgs.Usage);
+    return 0;
+}
 
 int Fail(string error)
 {
     Console.Error.WriteLine(error);
     return 1;
 }
+
+IEnvironmentPersister CreatePersister() =>
+    OperatingSystem.IsWindows()
+        ? new WindowsEnvironmentPersister()
+        : new UnixEnvironmentPersister();
 
 async Task<int> RunGetChatIdAsync()
 {
@@ -41,20 +54,35 @@ async Task<int> RunGetChatIdAsync()
     return 0;
 }
 
-async Task<int> RunSendAsync(string message)
+async Task<int> RunSetupAsync()
 {
-    var config = NotifierConfig.FromEnvironment(Environment.GetEnvironmentVariable);
-    if (config is null)
+    var wizard = new SetupWizard(
+        new ConsoleSetupIO(),
+        CreatePersister(),
+        token => new TelegramBotValidator(),
+        token => new TelegramChatIdLookup(token),
+        token => new TelegramBotMessageSender(token));
+
+    var succeeded = await wizard.RunAsync();
+    return succeeded ? 0 : 1;
+}
+
+async Task<int> RunSendAsync(string sender, string message)
+{
+    var persister = CreatePersister();
+    var existing = persister.ReadExisting();
+    if (existing.BotToken is null || existing.ChatId is null)
     {
-        return Fail("Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables first (see README.md).");
+        return Fail("SemaNami is not configured yet. Run `SemaNami --setup` first.");
     }
 
-    var sender = new TelegramBotMessageSender(config.BotToken);
-    var notifier = new Notifier(sender, config.ChatId);
+    var config = new NotifierConfig(existing.BotToken, existing.ChatId);
+    var messageSender = new TelegramBotMessageSender(config.BotToken);
+    var notifier = new Notifier(messageSender, config.ChatId);
 
     try
     {
-        await notifier.NotifyAsync(message);
+        await notifier.NotifyAsync(MessageFormatter.WithSender(sender, message));
         Console.WriteLine("Notification sent.");
         return 0;
     }
