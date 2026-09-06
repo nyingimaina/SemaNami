@@ -1,7 +1,7 @@
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
-namespace TelegramNotifier.Core;
+namespace SemaNami.Core;
 
 public interface IChatIdLookup
 {

@@ -22,8 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\TelegramNotifier.Core\TelegramNotifier.Core.csproj" />
-    <ProjectReference Include="..\..\src\TelegramNotifier.Cli\TelegramNotifier.Cli.csproj" />
+    <ProjectReference Include="..\..\src\SemaNami.Core\SemaNami.Core.csproj" />
+    <ProjectReference Include="..\..\src\SemaNami.Cli\SemaNami.Cli.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,6 @@
 using Telegram.Bot;
 
-namespace TelegramNotifier.Core;
+namespace SemaNami.Core;
 
 // Thin wrapper over Telegram.Bot's ITelegramBotClient — kept free of branching logic so it
 // doesn't need its own unit tests; Notifier's tests cover this interface's contract via a mock.

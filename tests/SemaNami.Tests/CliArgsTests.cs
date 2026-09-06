@@ -1,7 +1,7 @@
-using TelegramNotifier.Cli;
+using SemaNami.Cli;
 using Xunit;
 
-namespace TelegramNotifier.Tests;
+namespace SemaNami.Tests;
 
 public class CliArgsTests
 {

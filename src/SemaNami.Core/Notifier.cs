@@ -1,4 +1,4 @@
-namespace TelegramNotifier.Core;
+namespace SemaNami.Core;
 
 // Facade any tool references directly: construct once with a message sender and destination
 // chat id, then call NotifyAsync for every notification.

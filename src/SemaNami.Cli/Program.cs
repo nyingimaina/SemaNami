@@ -1,5 +1,5 @@
-using TelegramNotifier.Cli;
-using TelegramNotifier.Core;
+using SemaNami.Cli;
+using SemaNami.Core;
 
 var command = CliArgs.Parse(args);
 

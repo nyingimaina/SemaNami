@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SemaNami.Cli/SemaNami.Cli.csproj" />
+    <Project Path="src/SemaNami.Core/SemaNami.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SemaNami.Tests/SemaNami.Tests.csproj" />
+  </Folder>
+</Solution>

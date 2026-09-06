@@ -1,4 +1,4 @@
-namespace TelegramNotifier.Core;
+namespace SemaNami.Core;
 
 public interface ITelegramMessageSender
 {

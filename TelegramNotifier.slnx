@@ -1,9 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/TelegramNotifier.Cli/TelegramNotifier.Cli.csproj" />
-    <Project Path="src/TelegramNotifier.Core/TelegramNotifier.Core.csproj" />
-  </Folder>
-  <Folder Name="/tests/">
-    <Project Path="tests/TelegramNotifier.Tests/TelegramNotifier.Tests.csproj" />
-  </Folder>
-</Solution>

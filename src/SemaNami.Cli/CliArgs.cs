@@ -1,4 +1,4 @@
-namespace TelegramNotifier.Cli;
+namespace SemaNami.Cli;
 
 public static class CliArgs
 {

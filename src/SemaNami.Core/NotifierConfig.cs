@@ -1,4 +1,4 @@
-namespace TelegramNotifier.Core;
+namespace SemaNami.Core;
 
 public sealed record NotifierConfig(string BotToken, string ChatId)
 {

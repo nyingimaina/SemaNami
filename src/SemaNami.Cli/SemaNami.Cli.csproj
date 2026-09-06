@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\TelegramNotifier.Core\TelegramNotifier.Core.csproj" />
+    <ProjectReference Include="..\SemaNami.Core\SemaNami.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -9,6 +9,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>SemaNami</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
 </Project>

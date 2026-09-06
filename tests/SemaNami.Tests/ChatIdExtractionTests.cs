@@ -1,8 +1,8 @@
 using Telegram.Bot.Types;
-using TelegramNotifier.Core;
+using SemaNami.Core;
 using Xunit;
 
-namespace TelegramNotifier.Tests;
+namespace SemaNami.Tests;
 
 public class ChatIdExtractionTests
 {
