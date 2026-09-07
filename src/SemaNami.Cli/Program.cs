@@ -179,6 +179,18 @@ string GetLogPath() => Path.Combine(Path.GetDirectoryName(GetDbPath())!, "listen
 
 void LogToFile(string message)
 {
+    // Best-effort on both sinks, independently — a console-less launch context (Task Scheduler)
+    // must not lose the file record just because Console.Error throws there, and a missing/
+    // unwritable log directory must not silence console output for someone running this
+    // directly in a terminal to debug it.
+    try
+    {
+        Console.Error.WriteLine(message);
+    }
+    catch
+    {
+    }
+
     try
     {
         var logPath = GetLogPath();
@@ -187,7 +199,6 @@ void LogToFile(string message)
     }
     catch
     {
-        // Logging is best-effort — never let a logging failure mask the real error.
     }
 }
 
