@@ -27,7 +27,12 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Source: "..\dist\win-x64\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
+; Both entries carry the "postinstall" flag (not just the second one) so they both run after
+; file copy, in this listed order, rather than --install-service running earlier during the
+; copy phase and racing --setup's one-shot getUpdates call for the same bot token's update
+; stream. Only --setup shows a checkbox (via Description); --install-service always runs.
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--setup"; Description: "Configure SemaNami now (recommended)"; Flags: postinstall runascurrentuser
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-service"; Flags: postinstall runascurrentuser runhidden
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"

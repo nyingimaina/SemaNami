@@ -31,6 +31,10 @@ echo ""
 if command -v SemaNami >/dev/null 2>&1; then
   echo "Let's finish setup now."
   SemaNami --setup
+  # Must come after --setup finishes (and its one-shot getUpdates call returns) — running it
+  # first would let the listener's long-poll race --setup for the same bot token's update stream.
+  SemaNami --install-service
 else
   echo "Open a new terminal, then run: SemaNami --setup"
+  echo "Then run: SemaNami --install-service"
 fi
