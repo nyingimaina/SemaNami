@@ -175,12 +175,46 @@ int RunUninstallService()
     return 0;
 }
 
+string GetLogPath() => Path.Combine(Path.GetDirectoryName(GetDbPath())!, "listen.log");
+
+void LogToFile(string message)
+{
+    try
+    {
+        var logPath = GetLogPath();
+        Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+        File.AppendAllText(logPath, $"{DateTime.UtcNow:O} {message}\n");
+    }
+    catch
+    {
+        // Logging is best-effort — never let a logging failure mask the real error.
+    }
+}
+
 async Task<int> RunListenAsync()
+{
+    // A launch context with no attached console (observed: Task Scheduler) can make even basic
+    // Console I/O throw here. Wrapping the whole method means a failure this early — or any
+    // other unexpected exception — is captured to listen.log instead of the process silently
+    // vanishing with nothing to diagnose it by.
+    try
+    {
+        return await RunListenCoreAsync();
+    }
+    catch (Exception ex)
+    {
+        LogToFile($"FATAL: {ex}");
+        return 1;
+    }
+}
+
+async Task<int> RunListenCoreAsync()
 {
     var config = GetConfig();
     if (config is null)
     {
-        return Fail("SemaNami is not configured yet. Run `SemaNami --setup` first.");
+        LogToFile("Not configured — run SemaNami --setup first.");
+        return 1;
     }
 
     var dbPath = GetDbPath();
@@ -197,7 +231,8 @@ async Task<int> RunListenAsync()
     }
     catch (IOException)
     {
-        return Fail("SemaNami --listen is already running.");
+        LogToFile("Another --listen instance already holds the lock file — exiting.");
+        return 1;
     }
 
     using (lockFile)
@@ -209,9 +244,17 @@ async Task<int> RunListenAsync()
         var pipeServer = new PipeSubscriptionServer(new ConversationWaitResolver(store, realtimeNotifier));
 
         using var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+        try
+        {
+            Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+        }
+        catch
+        {
+            // No console attached (e.g. launched by Task Scheduler) — Ctrl+C handling is
+            // meaningless there anyway; the task's own stop/kill still terminates the process.
+        }
 
-        Console.WriteLine("SemaNami listener started.");
+        LogToFile("SemaNami listener started.");
 
         var pipeTask = pipeServer.RunAsync(cts.Token);
 
@@ -227,7 +270,7 @@ async Task<int> RunListenAsync()
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Poll failed: {ex.Message}");
+                LogToFile($"Poll failed: {ex}");
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
@@ -248,6 +291,7 @@ async Task<int> RunListenAsync()
             // Shutting down — nothing to recover.
         }
 
+        LogToFile("SemaNami listener stopping.");
         return 0;
     }
 }
