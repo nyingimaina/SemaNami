@@ -155,7 +155,15 @@ int RunInstallService()
         return Fail("Could not determine the running executable's path.");
     }
 
-    CreateServiceRegistrar().Install(exePath);
+    try
+    {
+        CreateServiceRegistrar().Install(exePath);
+    }
+    catch (Exception ex)
+    {
+        return Fail($"Failed to install the SemaNami listener service: {ex.Message}");
+    }
+
     Console.WriteLine("SemaNami listener service installed and started.");
     return 0;
 }
@@ -248,32 +256,62 @@ async Task<int> RunWaitForReplyAsync(string sender, string conversationId, long?
 {
     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
 
-    // Fast path: the running --listen daemon's named pipe. Its failure (daemon not running,
-    // unreachable, or nothing came back) is never fatal — it just means falling back to polling.
+    NamedPipeClientStream? pipeClient = null;
     try
     {
-        using var pipeClient = new NamedPipeClientStream(".", PipeProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+        pipeClient = new NamedPipeClientStream(".", PipeProtocol.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
         connectCts.CancelAfter(TimeSpan.FromSeconds(2));
         await pipeClient.ConnectAsync(connectCts.Token);
+    }
+    catch
+    {
+        // Genuinely couldn't reach the daemon (not running, or connect timed out) — degrade to
+        // polling below.
+        pipeClient?.Dispose();
+        pipeClient = null;
+    }
 
-        using var writer = new StreamWriter(pipeClient, leaveOpen: true) { AutoFlush = true };
-        using var reader = new StreamReader(pipeClient, leaveOpen: true);
-
-        await writer.WriteLineAsync(JsonSerializer.Serialize(new PipeSubscribeRequest(sender, conversationId, after)));
-
-        var responseLine = await reader.ReadLineAsync(cts.Token);
-        if (!string.IsNullOrEmpty(responseLine))
+    if (pipeClient is not null)
+    {
+        using (pipeClient)
         {
-            var response = JsonSerializer.Deserialize<PipeSubscribeResponse>(responseLine);
-            if (response is not null && response.Messages.Count > 0)
+            try
             {
-                Console.WriteLine(JsonSerializer.Serialize(response.Messages));
-                return 0;
+                using var writer = new StreamWriter(pipeClient, leaveOpen: true) { AutoFlush = true };
+                using var reader = new StreamReader(pipeClient, leaveOpen: true);
+
+                await writer.WriteLineAsync(JsonSerializer.Serialize(new PipeSubscribeRequest(sender, conversationId, after)));
+
+                var responseLine = await reader.ReadLineAsync(cts.Token);
+                if (!string.IsNullOrEmpty(responseLine))
+                {
+                    var response = JsonSerializer.Deserialize<PipeSubscribeResponse>(responseLine);
+                    if (response is not null && response.Messages.Count > 0)
+                    {
+                        Console.WriteLine(JsonSerializer.Serialize(response.Messages));
+                        return 0;
+                    }
+                }
+
+                // Connected fine and used the realtime path — it just found nothing before our
+                // own --timeout. That is a clean, expected outcome, not an unreachable listener,
+                // and polling further is pointless: our whole time budget is already spent.
+                return 2;
+            }
+            catch (OperationCanceledException) when (cts.IsCancellationRequested)
+            {
+                return 2;
+            }
+            catch
+            {
+                // Connected, then lost the daemon mid-wait (e.g. it restarted) — fall back to
+                // polling for whatever time budget remains.
+                Console.Error.WriteLine("Lost connection to the SemaNami listener mid-wait — falling back to polling.");
             }
         }
     }
-    catch
+    else
     {
         Console.Error.WriteLine("SemaNami listener not reachable — falling back to polling.");
     }
@@ -281,7 +319,9 @@ async Task<int> RunWaitForReplyAsync(string sender, string conversationId, long?
     var store = new SqliteConversationStore(GetDbPath());
     while (!cts.IsCancellationRequested)
     {
-        var history = store.GetHistory(sender, conversationId, after);
+        var history = store.GetHistory(sender, conversationId, after)
+            .Where(m => m.Direction == "received")
+            .ToList();
         if (history.Count > 0)
         {
             Console.WriteLine(JsonSerializer.Serialize(history));

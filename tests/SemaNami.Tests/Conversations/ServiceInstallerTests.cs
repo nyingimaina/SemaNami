@@ -24,7 +24,27 @@ public class ServiceInstallerTests
             a.Contains("/SC ONLOGON") &&
             a.Contains("/RL LIMITED") &&
             a.Contains("/F"))), Times.Once);
-        runner.Verify(r => r.StartDetached(ExePath, "--listen"), Times.Once);
+        // Started via the task itself (schtasks /Run), not StartDetached — so it launches at the
+        // task's own /RL LIMITED integrity level rather than inheriting this (likely elevated)
+        // process's token, which would produce a named pipe normal clients can't connect to.
+        runner.Verify(r => r.Run("schtasks", It.Is<string>(a =>
+            a.Contains("/Run") && a.Contains("/TN \"SemaNami Listener\""))), Times.Once);
+        runner.Verify(r => r.StartDetached(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public void WindowsTaskSchedulerRegistrar_Install_SchtasksCreateFails_ThrowsAndNeverStartsTheListener()
+    {
+        // Regression test: schtasks /Create's exit code was being silently ignored, so a failed
+        // registration still reported success and still started a detached listener — giving
+        // false confidence that the persistent, reboot-surviving registration actually happened.
+        var runner = new Mock<IProcessRunner>();
+        runner.Setup(r => r.Run("schtasks", It.Is<string>(a => a.Contains("/Create")))).Returns(1);
+        var registrar = new WindowsTaskSchedulerRegistrar(runner.Object);
+
+        Assert.Throws<InvalidOperationException>(() => registrar.Install(ExePath));
+
+        runner.Verify(r => r.StartDetached(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]

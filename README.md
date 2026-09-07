@@ -23,9 +23,11 @@ Two pieces:
 
 ### Windows
 
-Run `dist/installer/SemaNamiSetup.exe` (build it first — see below). It's a per-user install,
-no admin required, adds `SemaNami` to your PATH, and offers to run setup immediately after
-install.
+Run `dist/installer/SemaNamiSetup.exe` (build it first — see below). It installs to your user
+profile, adds `SemaNami` to your PATH, and offers to run setup immediately after install. It
+asks for one UAC elevation — needed solely to register the background listener's "run at logon"
+scheduled task (creating that registration can itself require an elevated caller, even though
+the task then runs at every logon with your normal, non-admin token).
 
 ### macOS / Linux
 

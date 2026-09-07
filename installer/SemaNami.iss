@@ -1,5 +1,8 @@
-; SemaNami installer — per-user install (no admin required), adds SemaNami to the current
-; user's PATH, and offers to run the first-run setup wizard immediately after install.
+; SemaNami installer — per-user install location, adds SemaNami to the current user's PATH, and
+; offers to run the first-run setup wizard immediately after install. Requires admin elevation
+; (one UAC prompt) solely because registering the background listener's "run at logon" scheduled
+; task can itself require an elevated caller even though the task runs with a normal, non-admin
+; token afterward — the task itself stays per-user, /RL LIMITED.
 ;
 ; Build: requires dist\win-x64\SemaNami.exe to already exist (run scripts\build-all.ps1 first).
 ; Compile: ISCC.exe installer\SemaNami.iss
@@ -16,7 +19,7 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 OutputDir=..\dist\installer
 OutputBaseFilename=SemaNamiSetup
 Compression=lzma2
@@ -31,8 +34,15 @@ Source: "..\dist\win-x64\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversio
 ; file copy, in this listed order, rather than --install-service running earlier during the
 ; copy phase and racing --setup's one-shot getUpdates call for the same bot token's update
 ; stream. Only --setup shows a checkbox (via Description); --install-service always runs.
+;
+; --setup runs de-elevated (runascurrentuser) — it must write user-level config (HKCU) as the
+; real logged-in user, not as an elevated token, and it's interactive.
+; --install-service deliberately runs WITHOUT runascurrentuser, inheriting Setup's own elevated
+; (admin) token — registering the "run at logon" scheduled task can itself require an elevated
+; caller even though the task it creates runs with a normal, non-admin token (/RL LIMITED)
+; afterward at every logon.
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--setup"; Description: "Configure SemaNami now (recommended)"; Flags: postinstall runascurrentuser
-Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-service"; Flags: postinstall runascurrentuser runhidden
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-service"; Flags: postinstall runhidden
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
