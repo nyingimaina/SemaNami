@@ -18,7 +18,12 @@ public sealed class ConversationWaitResolver
 
     public async Task<IReadOnlyList<StoredMessage>> ResolveAsync(string sender, string conversationId, long? afterSeq, CancellationToken cancellationToken)
     {
-        var existing = store.GetHistory(sender, conversationId, afterSeq);
+        // "Wait for reply" means wait for the other side's next message — a caller's own
+        // just-sent message showing up in GetHistory (e.g. sent moments before this call) must
+        // never itself satisfy the wait.
+        var existing = store.GetHistory(sender, conversationId, afterSeq)
+            .Where(m => m.Direction == "received")
+            .ToList();
         if (existing.Count > 0)
         {
             return existing;

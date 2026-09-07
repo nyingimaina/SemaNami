@@ -69,6 +69,30 @@ public class ConversationWaitResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task ResolveAsync_OnlyNewMessageIsOwnSentMessage_StillWaitsForAReceivedReply()
+    {
+        // Regression test for a real bug hit live: sending a message and then immediately
+        // calling --wait-for-reply -after <the seq just before that send> found the caller's
+        // own just-sent message satisfying "something new exists" and returned instantly,
+        // without ever waiting for the other side to actually reply.
+        var store = CreateStore();
+        store.RecordSentMessage("Build Script", "deploy-1", 100, "Ship it?");
+        var afterSeq = store.GetHistory("Build Script", "deploy-1", null)[0].Seq - 1;
+        var reply = new StoredMessage(2, "received", 101, "Reply arrived", false, DateTime.UtcNow);
+        realtimeNotifier
+            .Setup(n => n.SubscribeAsync("Build Script", "deploy-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(reply);
+        var resolver = new ConversationWaitResolver(store, realtimeNotifier.Object);
+
+        var result = await resolver.ResolveAsync("Build Script", "deploy-1", afterSeq, CancellationToken.None);
+
+        Assert.Equal(reply, Assert.Single(result));
+        realtimeNotifier.Verify(
+            n => n.SubscribeAsync("Build Script", "deploy-1", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task ResolveAsync_RespectsAfterSeq_OnlyTreatsNewerMessagesAsAlreadyAvailable()
     {
         var store = CreateStore();
