@@ -8,7 +8,7 @@
 ; Compile: ISCC.exe installer\SemaNami.iss
 
 #define MyAppName "SemaNami"
-#define MyAppVersion "1.1.1"
+#define MyAppVersion "1.1.2"
 #define MyAppPublisher "Nyingi"
 #define MyAppExeName "SemaNami.exe"
 

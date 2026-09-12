@@ -33,6 +33,24 @@ public class ServiceInstallerTests
     }
 
     [Fact]
+    public void WindowsTaskSchedulerRegistrar_Install_DelaysStartAfterLogonToAvoidBootRace()
+    {
+        // Regression test: firing the listener the instant ONLOGON triggers (no delay) races
+        // Windows' own session/network bring-up at boot — observed in the wild as the process
+        // being killed by the OS moments after launch (exit code 0x40010004, no exception ever
+        // logged) and, on the runs that do survive, immediate DNS failures polling Telegram
+        // because the network isn't up yet. schtasks' /DELAY is only valid for ONSTART/ONLOGON/
+        // ONEVENT triggers, so this only works because the trigger is ONLOGON.
+        var runner = new Mock<IProcessRunner>();
+        var registrar = new WindowsTaskSchedulerRegistrar(runner.Object);
+
+        registrar.Install(ExePath);
+
+        runner.Verify(r => r.Run("schtasks", It.Is<string>(a =>
+            a.Contains("/Create") && a.Contains("/DELAY"))), Times.Once);
+    }
+
+    [Fact]
     public void WindowsTaskSchedulerRegistrar_Install_SchtasksCreateFails_ThrowsAndNeverStartsTheListener()
     {
         // Regression test: schtasks /Create's exit code was being silently ignored, so a failed

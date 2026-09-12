@@ -23,7 +23,12 @@ public sealed class WindowsTaskSchedulerRegistrar : IServiceRegistrar
         // require an elevated/interactive caller (observed: fails with "Access is denied" from a
         // non-interactive automation shell even with /RL LIMITED). The installer runs this
         // elevated for exactly that reason. /F makes re-registration idempotent.
-        var exitCode = processRunner.Run("schtasks", $"/Create /TN \"{TaskName}\" /TR \"{taskCommand}\" /SC ONLOGON /RL LIMITED /F");
+        // /DELAY 0:30 — firing the instant the ONLOGON trigger does races Windows' own session
+        // and network bring-up at boot (observed in the wild: the process killed by the OS
+        // moments after launch with no exception ever logged, and on runs that do survive,
+        // immediate DNS failures polling Telegram because the network isn't up yet). /DELAY is
+        // only valid for ONSTART/ONLOGON/ONEVENT triggers, which ONLOGON is.
+        var exitCode = processRunner.Run("schtasks", $"/Create /TN \"{TaskName}\" /TR \"{taskCommand}\" /SC ONLOGON /DELAY 0:30 /RL LIMITED /F");
         if (exitCode != 0)
         {
             throw new InvalidOperationException(

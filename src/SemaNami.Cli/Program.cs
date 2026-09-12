@@ -248,6 +248,11 @@ async Task<int> RunListenCoreAsync()
 
     using (lockFile)
     {
+        if (OperatingSystem.IsWindows())
+        {
+            ConsoleWindowHider.HideIfOwnedSolelyByThisProcess();
+        }
+
         var store = new SqliteConversationStore(dbPath);
         var updatesSource = new TelegramUpdatesSource(config.Value.BotToken, long.Parse(config.Value.ChatId));
         var realtimeNotifier = new InProcessRealtimeNotifier();
